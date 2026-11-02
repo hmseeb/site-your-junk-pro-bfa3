@@ -102,6 +102,37 @@
     });
   }
 
+  // GoHighLevel expects a first/last name pair and a single message field.
+  // Derive them from the visitor-facing fields so the contact in the
+  // sub-account is created with everything filled in. Purely additive: the
+  // original fields are still submitted untouched.
+  function syncCrmFields(form) {
+    var nameField = form.querySelector('[name="name"]');
+    var first = form.querySelector('input[name="first_name"]');
+    var last = form.querySelector('input[name="last_name"]');
+
+    if (nameField && (first || last)) {
+      var parts = String(nameField.value || "").trim().split(/\s+/);
+      var firstName = parts.shift() || "";
+      var lastName = parts.join(" ");
+      if (first) first.value = firstName;
+      if (last) last.value = lastName;
+    }
+
+    var message = form.querySelector('input[name="message"]');
+    if (message) {
+      var source = form.querySelector("textarea");
+      message.value = source ? source.value : "";
+    }
+
+    // Keep "Website Form" in step with the form name.
+    var formName = form.querySelector('input[name="_form"]');
+    var websiteForm = form.querySelector('input[name="Website Form"]');
+    if (formName && websiteForm && !websiteForm.value) {
+      websiteForm.value = formName.value;
+    }
+  }
+
   function showStatus(form, type, message) {
     var box = form.querySelector(".form-status");
     if (!box) return;
@@ -120,6 +151,15 @@
     var forms = document.querySelectorAll("form[data-leadr-form]");
 
     Array.prototype.forEach.call(forms, function (form) {
+      // Keep the GoHighLevel fields in sync as the visitor types, so a plain
+      // (non-fetch) POST carries them too.
+      form.addEventListener("input", function () {
+        syncCrmFields(form);
+      });
+      form.addEventListener("change", function () {
+        syncCrmFields(form);
+      });
+
       form.addEventListener("submit", function (e) {
         // The form carries `novalidate` so that it still posts normally without
         // JavaScript. With JS on we drive validation ourselves and must block
@@ -142,6 +182,9 @@
         // Keep _page fresh at submit time too.
         var pageField = form.querySelector('input[name="_page"]');
         if (pageField) pageField.value = window.location.href;
+
+        // Refresh the derived GoHighLevel fields right before we serialise.
+        syncCrmFields(form);
 
         // Build a JSON body from the form fields (includes _form, _page,
         // _gotcha and every human-readable field name).
