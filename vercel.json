@@ -1,4 +1,14 @@
 {
+  "rewrites": [
+    {
+      "source": "/quickestimate",
+      "destination": "/quickestimate.html"
+    },
+    {
+      "source": "/quickestimate/",
+      "destination": "/quickestimate.html"
+    }
+  ],
   "redirects": [
     {
       "source": "/admin",
