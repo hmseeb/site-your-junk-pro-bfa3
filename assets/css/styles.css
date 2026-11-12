@@ -41,6 +41,10 @@
   --maxw: 1180px;
   --gutter: 20px;
   --header-h: 76px;
+
+  /* Stable reserved height of the fixed mobile call bar:
+     9px top padding + 50px tap target + 9px bottom padding + safe area. */
+  --call-bar-h: calc(68px + env(safe-area-inset-bottom, 0px));
 }
 
 /* ---------- Reset / base ---------- */
@@ -1499,11 +1503,13 @@ strong {
   bottom: 0;
   z-index: 95;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
+  min-height: var(--call-bar-h);
   background: rgba(6, 40, 28, 0.9);
   backdrop-filter: blur(8px);
-  padding: 9px 10px;
+  padding: 9px 10px calc(9px + env(safe-area-inset-bottom, 0px));
   box-shadow: 0 -4px 18px rgba(6, 40, 28, 0.26);
 }
 .call-bar a {
@@ -1511,10 +1517,15 @@ strong {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 13px 10px;
+  min-width: 0;
+  min-height: 50px;
+  padding: 6px 10px;
   border-radius: var(--radius-pill);
   font-weight: 700;
-  font-size: 0.97rem;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: anywhere;
   color: #fff;
 }
 .call-bar a:hover {
@@ -1528,6 +1539,7 @@ strong {
   background: var(--green-500);
 }
 .call-bar svg {
+  flex: 0 0 auto;
   width: 18px;
   height: 18px;
   fill: none;
@@ -1537,7 +1549,7 @@ strong {
   stroke-linejoin: round;
 }
 body {
-  padding-bottom: 76px;
+  padding-bottom: calc(var(--call-bar-h) + 22px);
 }
 
 /* ---------- Utilities ---------- */
@@ -1565,6 +1577,49 @@ body {
 /* =========================================================
    Responsive
    ========================================================= */
+/* Small screens: let button rows stack instead of overflowing sideways. */
+@media (max-width: 599.98px) {
+  .btn {
+    white-space: normal;
+    line-height: 1.2;
+    min-height: 48px;
+    padding: 14px 20px;
+    overflow-wrap: anywhere;
+  }
+  .btn--lg {
+    padding: 15px 22px;
+    font-size: 1.02rem;
+  }
+  .btn-row {
+    gap: 12px;
+  }
+  .btn-row > .btn {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+}
+
+/* Below the desktop breakpoint the fixed call bar owns the bottom of the
+   screen, so lift the LeadrVision launchers above it with a 12px gap.
+   Horizontal offsets (--lv-widget-bubble-side) are left untouched so the two
+   launchers stay side by side. The `html body` prefix outranks the loader's
+   own `.lv-widget-bubble { bottom: 20px !important }` whenever it loads. */
+@media (max-width: 959.98px) {
+  html body .lv-widget-bubble {
+    bottom: calc(var(--call-bar-h) + 12px) !important;
+  }
+}
+
+/* The loader already goes full-screen at <=640px wide or <=480px tall; in the
+   remaining tablet range keep its floating panel clear of the lifted bubbles. */
+@media (min-width: 641px) and (max-width: 959.98px) and (min-height: 481px) {
+  html body .lv-widget-panel {
+    bottom: calc(var(--call-bar-h) + 80px) !important;
+    height: min(640px, calc(100vh - var(--call-bar-h) - 100px)) !important;
+    height: min(640px, calc(100dvh - var(--call-bar-h) - 100px)) !important;
+  }
+}
+
 @media (min-width: 620px) {
   .form-row--2 {
     grid-template-columns: 1fr 1fr;
