@@ -133,6 +133,46 @@
     }
   }
 
+  // Instant text alert. Fired in parallel with the LeadrVision POST and
+  // deliberately not awaited: it can never change the success or error
+  // message the visitor sees.
+  var TEXT_ALERT_ENDPOINT =
+    "https://services.leadconnectorhq.com/hooks/TDZrYDfPfmdTnolWYUF1/webhook-trigger/e40fc6bc-6cfb-4f5f-8267-756c798b4fe7";
+
+  function fieldValue(form, name) {
+    var el = form.querySelector('[name="' + name + '"]');
+    return el ? String(el.value || "") : "";
+  }
+
+  function sendTextAlert(form) {
+    var details = fieldValue(form, "Job details");
+    if (!details) {
+      var area = form.querySelector("textarea");
+      details = area ? String(area.value || "") : "";
+    }
+
+    try {
+      fetch(TEXT_ALERT_ENDPOINT, {
+        method: "POST",
+        mode: "no-cors",
+        keepalive: true,
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          lead_name: fieldValue(form, "name"),
+          lead_phone: fieldValue(form, "phone"),
+          service: fieldValue(form, "Service needed"),
+          details: details,
+          city: fieldValue(form, "Service address or city"),
+          preferred_date: fieldValue(form, "Preferred date"),
+          form: fieldValue(form, "_form"),
+          page: location.href
+        }).toString()
+      }).catch(function () {});
+    } catch (err) {
+      /* never let the alert affect the real submission */
+    }
+  }
+
   function showStatus(form, type, message) {
     var box = form.querySelector(".form-status");
     if (!box) return;
@@ -185,6 +225,12 @@
 
         // Refresh the derived GoHighLevel fields right before we serialise.
         syncCrmFields(form);
+
+        // Real visitors leave the honeypot empty; bots do not. Fire the
+        // instant text alert alongside (not instead of) the POST below.
+        if (!fieldValue(form, "_gotcha")) {
+          sendTextAlert(form);
+        }
 
         // Build a JSON body from the form fields (includes _form, _page,
         // _gotcha and every human-readable field name).
