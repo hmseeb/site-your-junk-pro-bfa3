@@ -90,7 +90,110 @@
   }
 
   /* ---------------------------------------------------------
-     5. Forms -> LeadrVision
+     5. Phones: host the assistant launchers inside the action dock
+
+     The LeadrVision loader mounts its launchers as fixed-position circles in
+     the bottom corner, where they sat on top of the hero buttons. At <=767px
+     we move those very same elements (no clones, no rebuilt buttons) into the
+     existing Call Now / Get a Quote dock so all four controls are separate,
+     non-overlapping targets in one row. Everything about the launchers —
+     element identity, any id, click handlers, iframe/widget connection and
+     the aria-label accessible name — is left untouched; only their parent and
+     their CSS box change. Above 767px, and on desktop, they go back to <body>
+     exactly where the loader put them.
+     --------------------------------------------------------- */
+  var DOCK_QUERY = "(max-width: 767.98px)";
+
+  function initAssistantDock() {
+    var dock = document.querySelector(".call-bar");
+    if (!dock || !window.matchMedia) return;
+
+    var mq = window.matchMedia(DOCK_QUERY);
+
+    function isBubble(node) {
+      return (
+        node &&
+        node.nodeType === 1 &&
+        node.classList &&
+        node.classList.contains("lv-widget-bubble")
+      );
+    }
+
+    // The loader mounts in status-arrival order, so derive the kind from the
+    // launcher itself to keep the dock order stable (chat, then voice).
+    function describe(bubble) {
+      var name = (bubble.getAttribute("aria-label") || "").toLowerCase();
+      var path = bubble.querySelector("svg path");
+      var shape = path ? path.getAttribute("d") || "" : "";
+      var isVoice =
+        /talk|voice|speak|phone|call/.test(name) || shape.indexOf("M22 16.92") === 0;
+      return isVoice
+        ? { order: 2, label: "Talk" }
+        : { order: 1, label: "Chat" };
+    }
+
+    function sync() {
+      var all = Array.prototype.slice.call(
+        document.querySelectorAll(".lv-widget-bubble")
+      );
+      if (!all.length) return;
+
+      if (!mq.matches) {
+        all.forEach(function (bubble) {
+          if (bubble.parentNode === dock) document.body.appendChild(bubble);
+        });
+        return;
+      }
+
+      var wanted = all
+        .map(function (bubble) {
+          var info = describe(bubble);
+          // Compact visible label (CSS ::after); the aria-label still names it.
+          if (bubble.getAttribute("data-dock-label") !== info.label) {
+            bubble.setAttribute("data-dock-label", info.label);
+          }
+          return { el: bubble, order: info.order };
+        })
+        .sort(function (a, b) {
+          return a.order - b.order;
+        })
+        .map(function (item) {
+          return item.el;
+        });
+
+      var current = Array.prototype.filter.call(dock.children, isBubble);
+      var settled =
+        current.length === wanted.length &&
+        wanted.every(function (el, i) {
+          return current[i] === el;
+        });
+      // Re-parenting blurs the element, so only touch the DOM when needed.
+      if (settled) return;
+
+      wanted.forEach(function (el) {
+        dock.appendChild(el);
+      });
+    }
+
+    sync();
+
+    // The loader probes its origin before mounting, so the launchers usually
+    // appear after this script has run.
+    if (window.MutationObserver) {
+      new MutationObserver(sync).observe(document.body, { childList: true });
+    }
+
+    if (mq.addEventListener) {
+      mq.addEventListener("change", sync);
+    } else if (mq.addListener) {
+      mq.addListener(sync);
+    }
+    window.addEventListener("orientationchange", sync);
+    window.addEventListener("resize", sync);
+  }
+
+  /* ---------------------------------------------------------
+     6. Forms -> LeadrVision
      --------------------------------------------------------- */
 
   // Stamp the hidden _page field with the current URL on page load so the
@@ -323,6 +426,7 @@
     initHeaderScroll();
     initFaq();
     initYear();
+    initAssistantDock();
     stampPageFields();
     initForms();
     initSubmittedNotice();
